@@ -1,4 +1,8 @@
+package com.stelath.gui;
+
+import com.stelath.networking.ChatStorage;
 import com.stelath.networking.Client;
+import com.stelath.Chatify;
 
 import javax.swing.*;
 import java.awt.event.ActionEvent;
@@ -21,6 +25,9 @@ public class JoinChatroom {
     // Add client variable so we can call on its methods
     public Client client;
 
+    public Chatify chatify;
+    public ChatStorage chatStorage;
+
     public void openJoinChatWindow()
     {
         frame = new JFrame("Join Chatroom");
@@ -40,8 +47,11 @@ public class JoinChatroom {
             {
                 if (client.connectToServer(serverAdressTextFeild.getText(),
                         Integer.parseInt(portTextFeild.getText()),
-                        usernameTextFeild.getText()))
+                        usernameTextFeild.getText(),
+                        chatStorage))
                 {
+                    chatify.clientOrServer = true;
+                    client.listenForMessages();
                     frame.dispose();
                 }
                 else

@@ -1,66 +1,187 @@
 package com.stelath.networking;
-import java.net.*;
+
 import java.io.*;
+import java.net.*;
 
-public class ConnectionHandler()
+// Server class
+public class Server extends Thread
 {
-    public ConnectionHandler(Socket clientSocket)
-    {
+    // Instantiate Global Variables
+    private String username = "Unnamed";
+    private ChatStorage chatStorage;
 
+    private ServerSocket serverSocket;
+
+    private ThreadGroup clientHandlerThreadGroup = new ThreadGroup("ClientHandler");
+
+    public static ClientHandler[] appendThread(ClientHandler[] arr, ClientHandler x)
+    {
+        int i;
+
+        // create a new array of size n+1
+        ClientHandler newarr[] = new ClientHandler[arr.length + 1];
+
+        // insert the elements from
+        // the old array into the new array
+        // insert all elements till n
+        // then insert x at n+1
+        for (i = 0; i < (arr.length - 1); i++)
+            newarr[i] = arr[i];
+
+        newarr[arr.length] = x;
+
+        return newarr;
+    }
+
+    public void sendMessageToClients(String message, boolean includeUsername)
+    {
+        ClientHandler[] threads = new ClientHandler[clientHandlerThreadGroup.activeCount()];
+        while (clientHandlerThreadGroup.enumerate(threads, true ) == threads.length) {
+            threads = new ClientHandler[threads.length * 2];
+        }
+
+        for (int i = 0; i < (threads.length - 1); i++) {
+            if(includeUsername)
+            {
+                if(sendMessageToClient(threads[i], username + ":\n" + message + "\n"))
+                    chatStorage.append(username + ":\n" + message + "\n", true);
+            }
+            else
+            {
+                if(sendMessageToClient(threads[i], message + "\n"))
+                    chatStorage.append(message + "\n", true);
+            }
+        }
+    }
+
+    private boolean sendMessageToClient(ClientHandler client, String message)
+    {
+        try
+        {
+            client.dataOutput.writeUTF(message);
+            return true;
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    public boolean startServer(int port, String username, ChatStorage chatStorage)
+    {
+        // Set Global username variable
+        this.username = username;
+        this.chatStorage = chatStorage;
+
+        // Server is listening on port passed through function
+        try {
+            serverSocket = new ServerSocket(port);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return true;
+    }
+
+    @Override
+    public void run()
+    {
+        // Running infinite loop for getting client request
+        while (true)
+        {
+            Socket socket = null;
+
+            try
+            {
+                // Socket object to receive incoming client requests
+                socket = serverSocket.accept();
+
+                System.out.println("A new client is connected : " + socket);
+
+                // Obtaining input and out streams
+                DataInputStream dataInput = new DataInputStream(socket.getInputStream());
+                DataOutputStream dataOutput = new DataOutputStream(socket.getOutputStream());
+
+                System.out.println("Assigning new thread for this client");
+
+                // Create a new thread object
+                ClientHandler thread = new ClientHandler(socket, dataInput, dataOutput, Server.this, chatStorage, clientHandlerThreadGroup);
+
+                // Invoking the start() method
+                thread.start();
+            }
+            catch (Exception e){
+                try {
+                    socket.close();
+                } catch (IOException ioException) {
+                    ioException.printStackTrace();
+                }
+                e.printStackTrace();
+            }
+        }
     }
 }
 
-public class Server
+
+// ClientHandler class
+class ClientHandler extends Thread
 {
-    // Initialize socket and input stream
-    private Socket socket = null;
-    private ServerSocket serverSocket = null;
-    private DataInputStream in = null;
+    final DataInputStream dataInput;
+    final DataOutputStream dataOutput;
+    final Socket socket;
+    final ChatStorage chatStorage;
+    final Server server;
 
-    public boolean startServer(int port)
+
+    // Constructor
+    public ClientHandler(Socket socket, DataInputStream dataInput, DataOutputStream dataOutput, Server server, ChatStorage chatStorage, ThreadGroup tg)
     {
-        // Starts server and waits for a connection
-        try
+        super(tg, "ClientHandlerThread");
+
+        this.socket = socket;
+        this.dataInput = dataInput;
+        this.dataOutput = dataOutput;
+        this.chatStorage = chatStorage;
+        this.server = server;
+    }
+
+    @Override
+    public void run()
+    {
+        String received;
+        while (true)
         {
-            serverSocket = new ServerSocket(port);
-            System.out.println("Server started");
-
-            System.out.println("Waiting for a client ...");
-
-            Socket clientSocket = serverSocket.accept();
-            Runnable connectionHandler = new ConnectionHandler(clientSocket);
-            new Thread(connectionHandler).start();
-
-            // takes input from the client socket
-            in = new DataInputStream(
-                    new BufferedInputStream(socket.getInputStream()));
-
-            String line = "";
-
-            // reads message from client until "Over" is sent
-            while (!line.equals("Over"))
+            try
             {
-                try
-                {
-                    line = in.readUTF();
-                    System.out.println(line);
+                // Recive Text From Client
+                // Update text box with message from client
+                received = dataInput.readUTF();
 
-                }
-                catch(IOException i)
+                // Send message back to clients
+                server.sendMessageToClients(received, false);
+
+                if(received.equals("EXITING PROGRAM"))
                 {
-                    System.out.println(i);
+                    System.out.println("Client " + this.socket + " sends exit...");
+                    System.out.println("Closing this connection.");
+                    this.socket.close();
+                    System.out.println("Connection closed");
+                    break;
                 }
             }
-            System.out.println("Closing connection");
+            catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
-            // close connection
-            socket.close();
-            in.close();
-        }
-        catch(IOException i)
+        try
         {
-            System.out.println(i);
+            // Closing resources
+            this.dataInput.close();
+            this.dataOutput.close();
         }
-        return false;
+        catch(IOException e)
+        {
+            e.printStackTrace();
+        }
     }
 }

@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="Chatify">
+    <output-path>$PROJECT_DIR$/out/artifacts/Chatify</output-path>
+    <root id="archive" name="Chatify.jar">
+      <element id="module-output" name="Chatify" />
+    </root>
+  </artifact>
+</component>
