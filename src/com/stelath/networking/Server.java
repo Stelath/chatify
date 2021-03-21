@@ -85,6 +85,8 @@ public class Server extends Thread
     @Override
     public void run()
     {
+        int threadNumber = 1;
+
         // Running infinite loop for getting client request
         while (true)
         {
@@ -104,7 +106,10 @@ public class Server extends Thread
                 System.out.println("Assigning new thread for this client");
 
                 // Create a new thread object
-                ClientHandler thread = new ClientHandler(socket, dataInput, dataOutput, Server.this, chatStorage, clientHandlerThreadGroup);
+                ClientHandler thread = new ClientHandler(socket, dataInput, dataOutput, Server.this, chatStorage, clientHandlerThreadGroup, threadNumber);
+
+                // Add one to "threadNumber"
+                threadNumber++;
 
                 // Invoking the start() method
                 thread.start();
@@ -133,9 +138,9 @@ class ClientHandler extends Thread
 
 
     // Constructor
-    public ClientHandler(Socket socket, DataInputStream dataInput, DataOutputStream dataOutput, Server server, ChatStorage chatStorage, ThreadGroup tg)
+    public ClientHandler(Socket socket, DataInputStream dataInput, DataOutputStream dataOutput, Server server, ChatStorage chatStorage, ThreadGroup tg, int threadNumber)
     {
-        super(tg, "ClientHandlerThread");
+        super(tg, ("ClientHandlerThread" + threadNumber));
 
         this.socket = socket;
         this.dataInput = dataInput;
